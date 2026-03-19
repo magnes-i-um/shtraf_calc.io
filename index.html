@@ -21,10 +21,9 @@
             margin: 20px;
         }
 
-        /* Основной контейнер — две колонки */
         .main-container {
             display: flex;
-            flex-wrap: wrap; /* на узких экранах колонки встанут друг под другом */
+            flex-wrap: wrap;
             gap: 20px;
             max-width: 1100px;
             width: 100%;
@@ -35,9 +34,8 @@
             border: 2px solid #aaa;
         }
 
-        /* Левая колонка — калькулятор */
         .calculator {
-            flex: 0 0 400px; /* фиксированная ширина 400px */
+            flex: 0 0 400px;
             min-width: 300px;
         }
 
@@ -121,14 +119,13 @@
             font-size: 1.5rem;
         }
 
-        /* Правая колонка — список нарушений */
         .violations-container {
-            flex: 1 1 300px; /* занимает оставшееся пространство */
+            flex: 1 1 300px;
             min-width: 260px;
             background: transparent;
             border-radius: 10px;
             max-height: 600px;
-            overflow-y: auto; /* прокрутка, если листов много */
+            overflow-y: auto;
             padding-right: 5px;
         }
 
@@ -191,7 +188,6 @@
             border-color: #b08a7a;
         }
 
-        /* Адаптация для узких экранов — колонки в столбец */
         @media (max-width: 800px) {
             .main-container {
                 flex-direction: column;
@@ -217,18 +213,17 @@
 </head>
 <body>
     <div class="main-container">
-        <!-- Левая колонка: калькулятор -->
         <div class="calculator">
             <div class="display" id="display">
                 <div class="title" id="displayTitle">Выберите нарушение</div>
-                <div class="amount" id="displayAmount"></div>
+                <div class="amount" id="displayAmount">0</div>
             </div>
 
             <div class="keypad" id="keypad">
-                <button class="key operation">÷</button>
-                <button class="key operation">×</button>
-                <button class="key operation">−</button>
-                <button class="key operation">+</button>
+                <button class="key operation" data-op="/">÷</button>
+                <button class="key operation" data-op="*">×</button>
+                <button class="key operation" data-op="-">−</button>
+                <button class="key operation" data-op="+">+</button>
 
                 <button class="key digit" data-digit="7">7</button>
                 <button class="key digit" data-digit="8">8</button>
@@ -238,20 +233,19 @@
                 <button class="key digit" data-digit="4">4</button>
                 <button class="key digit" data-digit="5">5</button>
                 <button class="key digit" data-digit="6">6</button>
-                <button class="key operation">±</button>
+                <button class="key operation" data-op="+/-">±</button>
 
                 <button class="key digit" data-digit="1">1</button>
                 <button class="key digit" data-digit="2">2</button>
                 <button class="key digit" data-digit="3">3</button>
-                <button class="key operation">%</button>
+                <button class="key operation" data-op="%">%</button>
 
                 <button class="key digit" data-digit="0" style="grid-column: span 2;">0</button>
-                <button class="key operation">.</button>
-                <button class="key operation">=</button>
+                <button class="key operation" data-op=".">.</button>
+                <button class="key operation" data-op="=">=</button>
             </div>
         </div>
 
-        <!-- Правая колонка: листы нарушений -->
         <div class="violations-container">
             <div class="violations" id="violationsList"></div>
         </div>
@@ -259,6 +253,7 @@
 
     <script>
         (function() {
+            // Данные о нарушениях
             const violations = [
                 // Должностные лица
                 { title: "Не проведён вводный инструктаж (физлицо)", max: 25000 },
@@ -282,15 +277,26 @@
                 { title: "Не выполнено предписание ГИТ (юрлицо, приостановка)", max: 0, nonMonetary: true, description: "ПРИОСТАНОВКА 90 СУТОК" }
             ];
 
+            // Элементы DOM
             const displayTitle = document.getElementById('displayTitle');
             const displayAmount = document.getElementById('displayAmount');
             const digitKeys = document.querySelectorAll('.key.digit');
+            const operationKeys = document.querySelectorAll('.key.operation');
             const clearBtn = document.getElementById('clearBtn');
             const violationsList = document.getElementById('violationsList');
 
+            // Состояние калькулятора
+            let currentInput = '';          // строка, отображаемая на дисплее
+            let previousValue = null;        // предыдущее значение (для операций)
+            let pendingOperation = null;      // '+', '-', '*', '/'
+            let newInputExpected = false;     // флаг: после операции или равно нужно начать новый ввод
+            let lastWasEqual = false;         // флаг для обработки повторов
+
+            // Для анимации
             let currentAnimation = null;
             let audioContext = null;
 
+            // Инициализация AudioContext
             function getAudioContext() {
                 if (!audioContext) {
                     audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -314,14 +320,21 @@
                     osc.start();
                     osc.stop(ctx.currentTime + 0.05);
                 } catch (e) {
-                    // ignore
+                    // игнорируем ошибки звука
                 }
             }
 
+            // Обновить дисплей (числовую часть)
+            function updateDisplay(value) {
+                displayAmount.textContent = value !== '' ? value : '0';
+            }
+
+            // Сброс подсветки цифр
             function clearActiveDigits() {
                 digitKeys.forEach(btn => btn.classList.remove('active'));
             }
 
+            // Подсветка конкретной цифры
             function highlightDigit(digit) {
                 digitKeys.forEach(btn => {
                     if (btn.getAttribute('data-digit') === digit) {
@@ -332,8 +345,9 @@
                 });
             }
 
+            // Подсветка всех уникальных цифр числа
             function highlightAllDigits(number) {
-                if (!number && number !== 0) return;
+                if (number === undefined || number === null) return;
                 const numStr = Math.abs(number).toString();
                 const uniqueDigits = [...new Set(numStr.split(''))];
                 digitKeys.forEach(btn => {
@@ -346,22 +360,36 @@
                 });
             }
 
-            function animateNumber(number, violationTitle) {
+            // Завершить анимацию (если идёт) и зафиксировать текущий буфер как число
+            function finishAnimation() {
                 if (currentAnimation) {
                     clearTimeout(currentAnimation);
                     currentAnimation = null;
+                    // Если в процессе анимации был накоплен буфер, сохраняем его как currentInput
+                    // (буфер уже отображается в displayAmount)
+                    currentInput = displayAmount.textContent;
+                    updateDisplay(currentInput);
                 }
+            }
+
+            // Анимация набора числа (для листов)
+            function animateNumber(number, violationTitle) {
+                finishAnimation(); // прерываем предыдущую анимацию
 
                 const numStr = number.toString();
                 let buffer = '';
                 let index = 0;
 
                 displayTitle.textContent = violationTitle;
-                displayAmount.textContent = '';
+                // Не сбрасываем displayAmount сразу, будем заполнять
 
                 function step() {
                     if (index >= numStr.length) {
+                        // Анимация завершена
+                        currentInput = buffer;
+                        updateDisplay(currentInput);
                         highlightAllDigits(number);
+                        currentAnimation = null;
                         return;
                     }
 
@@ -378,22 +406,154 @@
                 step();
             }
 
-            function onViolationClick(v) {
-                if (currentAnimation) {
-                    clearTimeout(currentAnimation);
-                    currentAnimation = null;
-                }
-
-                clearActiveDigits();
-
-                if (v.nonMonetary) {
-                    displayTitle.textContent = v.title;
-                    displayAmount.textContent = v.description;
+            // Обработка цифровой кнопки (ввод с клавиатуры калькулятора)
+            function handleDigit(digit) {
+                finishAnimation(); // прерываем анимацию, если она идёт
+                if (newInputExpected) {
+                    currentInput = digit; // начинаем новое число
+                    newInputExpected = false;
                 } else {
-                    animateNumber(v.max, v.title);
+                    // Добавляем цифру, но не более 15 знаков (защита от переполнения)
+                    if (currentInput.length < 15) {
+                        currentInput = (currentInput === '0') ? digit : currentInput + digit;
+                    }
                 }
+                updateDisplay(currentInput);
+                lastWasEqual = false;
             }
 
+            // Обработка операций
+            function handleOperation(op) {
+                finishAnimation();
+
+                if (op === '=') {
+                    // Вычисление
+                    if (pendingOperation && previousValue !== null && currentInput !== '') {
+                        const current = parseFloat(currentInput);
+                        let result;
+                        switch (pendingOperation) {
+                            case '+': result = previousValue + current; break;
+                            case '-': result = previousValue - current; break;
+                            case '*': result = previousValue * current; break;
+                            case '/': result = previousValue / current; break;
+                            default: result = current;
+                        }
+                        // Округление до целых (штрафы целые)
+                        result = Math.round(result);
+                        currentInput = result.toString();
+                        previousValue = null;
+                        pendingOperation = null;
+                        newInputExpected = true; // следующий ввод начнёт новое число
+                        lastWasEqual = true;
+                        updateDisplay(currentInput);
+                        // Подсветка цифр результата
+                        highlightAllDigits(result);
+                        displayTitle.textContent = 'Результат';
+                    } else if (!pendingOperation && previousValue === null && currentInput !== '') {
+                        // Если равно нажато без операции, ничего не делаем
+                    }
+                    return;
+                }
+
+                // Для остальных операций (+, -, *, /, %, +/-, .)
+                if (op === '.') {
+                    // Добавление десятичной точки
+                    if (!currentInput.includes('.')) {
+                        if (currentInput === '') currentInput = '0';
+                        currentInput += '.';
+                        updateDisplay(currentInput);
+                    }
+                    return;
+                }
+
+                if (op === '+/-') {
+                    // Смена знака
+                    if (currentInput !== '' && currentInput !== '0') {
+                        if (currentInput.startsWith('-')) {
+                            currentInput = currentInput.slice(1);
+                        } else {
+                            currentInput = '-' + currentInput;
+                        }
+                        updateDisplay(currentInput);
+                    }
+                    return;
+                }
+
+                if (op === '%') {
+                    // Процент от текущего значения (можно реализовать позже)
+                    return;
+                }
+
+                // Обычные бинарные операции (+, -, *, /)
+                if (currentInput !== '') {
+                    if (previousValue !== null && pendingOperation && !lastWasEqual) {
+                        // Если уже есть ожидающая операция, выполняем её (цепочка)
+                        const current = parseFloat(currentInput);
+                        let result;
+                        switch (pendingOperation) {
+                            case '+': result = previousValue + current; break;
+                            case '-': result = previousValue - current; break;
+                            case '*': result = previousValue * current; break;
+                            case '/': result = previousValue / current; break;
+                            default: result = current;
+                        }
+                        result = Math.round(result);
+                        previousValue = result;
+                        currentInput = result.toString();
+                        updateDisplay(currentInput);
+                    } else {
+                        // Сохраняем текущее значение как первый операнд
+                        previousValue = parseFloat(currentInput);
+                    }
+                } else if (previousValue !== null) {
+                    // Если currentInput пуст, но есть previousValue, ничего не делаем, просто меняем операцию
+                } else {
+                    // Нет ни одного операнда — игнорируем
+                    return;
+                }
+
+                pendingOperation = op;
+                newInputExpected = true; // после операции следующий ввод начнёт новое число
+                lastWasEqual = false;
+                // Не очищаем дисплей, но можно показать, что ждём второе число (оставим первое)
+                // Многие калькуляторы оставляют первое число на дисплее до ввода второго.
+                // Мы оставим currentInput как есть.
+            }
+
+            // Сброс (C)
+            function handleClear() {
+                finishAnimation();
+                currentInput = '';
+                previousValue = null;
+                pendingOperation = null;
+                newInputExpected = false;
+                lastWasEqual = false;
+                displayTitle.textContent = 'Выберите нарушение';
+                updateDisplay('');
+                clearActiveDigits();
+            }
+
+            // Обработчик клика по листу
+            function onViolationClick(v) {
+                if (v.nonMonetary) {
+                    // Неденежное наказание: не участвует в калькуляторе, просто показываем сообщение
+                    finishAnimation();
+                    displayTitle.textContent = v.title;
+                    displayAmount.textContent = v.description;
+                    clearActiveDigits();
+                    return;
+                }
+
+                // Денежный штраф — запускаем анимацию набора числа
+                // Но перед этим нужно учесть состояние калькулятора:
+                // Если ожидается новый ввод (newInputExpected), то после анимации это число станет вторым операндом.
+                // Если нет, то заменит текущее значение.
+                // Также, если currentInput пуст, то просто начинаем ввод.
+                // Анимация сама установит currentInput по окончании.
+                animateNumber(v.max, v.title);
+            }
+
+            // Инициализация кнопок
             violations.forEach(v => {
                 const btn = document.createElement('button');
                 btn.className = 'violation-btn' + (v.nonMonetary ? ' non-monetary' : '');
@@ -410,15 +570,32 @@
                 violationsList.appendChild(btn);
             });
 
-            clearBtn.addEventListener('click', () => {
-                if (currentAnimation) {
-                    clearTimeout(currentAnimation);
-                    currentAnimation = null;
-                }
-                displayTitle.textContent = 'Выберите нарушение';
-                displayAmount.textContent = '';
-                clearActiveDigits();
+            // Обработчики для цифровых кнопок
+            digitKeys.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const digit = btn.getAttribute('data-digit');
+                    handleDigit(digit);
+                });
             });
+
+            // Обработчики для кнопок операций (включая равно и точку)
+            operationKeys.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const op = btn.getAttribute('data-op') || btn.textContent; // для равно и других
+                    handleOperation(op);
+                });
+            });
+
+            // Кнопка C
+            clearBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                handleClear();
+            });
+
+            // Инициализация дисплея
+            handleClear();
         })();
     </script>
 </body>
