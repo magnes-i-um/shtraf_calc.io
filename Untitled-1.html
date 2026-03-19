@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Калькулятор штрафов по охране труда</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Tahoma', sans-serif;
+            background: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 20px;
+        }
+
+        .calculator {
+            max-width: 750px;
+            width: 100%;
+            background: #e0e0e0;
+            border-radius: 20px;
+            padding: 25px 20px 20px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            border: 2px solid #aaa;
+        }
+
+        .display {
+            background: #ccff00;
+            color: #111;
+            font-family: 'DS-Digital', 'Digital-7', 'Courier New', monospace;
+            font-size: 2.5rem;
+            font-weight: bold;
+            text-align: right;
+            padding: 20px 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            min-height: 130px;
+            word-wrap: break-word;
+            border: 2px solid #888;
+            box-shadow: inset 0 0 5px rgba(0,0,0,0.2);
+            line-height: 1.3;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .display .title {
+            font-size: 1.2rem;
+            text-align: left;
+            color: #333;
+            margin-bottom: 5px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .display .amount {
+            font-size: 2rem;
+            text-align: right;
+        }
+
+        .keypad {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 25px;
+        }
+
+        .key {
+            border: none;
+            border-radius: 12px;
+            padding: 18px 0;
+            font-size: 1.8rem;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #aaa;
+            transition: all 0.05s ease;
+            font-family: 'Tahoma', sans-serif;
+            border: 1px solid #888;
+        }
+
+        .key:active {
+            transform: translateY(4px);
+            box-shadow: 0 0 0 #aaa;
+        }
+
+        .key.digit {
+            background: white;
+            color: black;
+        }
+
+        .key.digit.active {
+            background: #ffff99;
+            box-shadow: 0 2px 0 #888;
+            transform: translateY(2px);
+        }
+
+        .key.operation {
+            background: #ff4d4d;
+            color: white;
+        }
+
+        .key.clear {
+            background: #ff4d4d;
+            color: white;
+            font-size: 1.5rem;
+        }
+
+        .violations {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            justify-content: center;
+            margin-top: 15px;
+        }
+
+        .violation-btn {
+            background: #f5f0dc;
+            border: 2px solid #b0a28a;
+            border-radius: 5px 12px 12px 5px;
+            padding: 15px 12px;
+            font-family: 'Courier New', 'PT Mono', monospace;
+            font-size: 1rem;
+            font-weight: bold;
+            color: #2c2c2c;
+            box-shadow: 3px 3px 5px rgba(0,0,0,0.1), inset -2px -2px 3px rgba(255,255,255,0.7);
+            cursor: pointer;
+            flex: 1 1 220px;
+            transition: 0.1s;
+            text-align: left;
+            line-height: 1.4;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+            min-width: 240px;
+            position: relative;
+        }
+
+        .violation-btn:hover {
+            background: #e8ddc5;
+            box-shadow: 3px 3px 8px rgba(0,0,0,0.15);
+            transform: translateY(-2px);
+        }
+
+        .violation-btn:active {
+            transform: translateY(2px);
+            box-shadow: 1px 1px 3px rgba(0,0,0,0.2);
+        }
+
+        .violation-btn::before {
+            content: "📄 ";
+            font-size: 1.2rem;
+            opacity: 0.7;
+        }
+
+        .violation-btn::after {
+            content: "";
+            position: absolute;
+            left: -2px;
+            top: 10px;
+            bottom: 10px;
+            width: 4px;
+            background: repeating-linear-gradient(to bottom, #b0a28a 0px, #b0a28a 4px, transparent 4px, transparent 8px);
+            border-radius: 2px;
+        }
+
+        .non-monetary {
+            background: #f5e0d0;
+            border-color: #b08a7a;
+        }
+
+        @media (max-width: 500px) {
+            .display { font-size: 1.8rem; }
+            .key { padding: 15px 0; font-size: 1.5rem; }
+            .violation-btn { min-width: 100%; }
+        }
+
+        @font-face {
+            font-family: 'DS-Digital';
+            src: url('https://cdn.jsdelivr.net/npm/ds-digital@1.0.0/DS-DIGI.TTF') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+            font-display: swap;
+        }
+    </style>
+</head>
+<body>
+    <div class="calculator">
+        <div class="display" id="display">
+            <div class="title" id="displayTitle">Выберите нарушение</div>
+            <div class="amount" id="displayAmount"></div>
+        </div>
+
+        <div class="keypad" id="keypad">
+            <button class="key operation">÷</button>
+            <button class="key operation">×</button>
+            <button class="key operation">−</button>
+            <button class="key operation">+</button>
+
+            <button class="key digit" data-digit="7">7</button>
+            <button class="key digit" data-digit="8">8</button>
+            <button class="key digit" data-digit="9">9</button>
+            <button class="key clear" id="clearBtn">C</button>
+
+            <button class="key digit" data-digit="4">4</button>
+            <button class="key digit" data-digit="5">5</button>
+            <button class="key digit" data-digit="6">6</button>
+            <button class="key operation">±</button>
+
+            <button class="key digit" data-digit="1">1</button>
+            <button class="key digit" data-digit="2">2</button>
+            <button class="key digit" data-digit="3">3</button>
+            <button class="key operation">%</button>
+
+            <button class="key digit" data-digit="0" style="grid-column: span 2;">0</button>
+            <button class="key operation">.</button>
+            <button class="key operation">=</button>
+        </div>
+
+        <div class="violations" id="violationsList"></div>
+    </div>
+
+    <script>
+        (function() {
+            // Данные о нарушениях: title (текст на листе), max (максимальная сумма), 
+            // nonMonetary (флаг неденежного наказания), description (текст для дисплея)
+            const violations = [
+                // Должностные лица (физлица)
+                { title: "Не проведён вводный инструктаж (физлицо)", max: 25000 },
+                { title: "Нет подписи в журнале инструктажа (физлицо)", max: 25000 },
+                { title: "Отсутствует распоряжение о стажировке (физлицо)", max: 25000 },
+                { title: "Не проведена СОУТ или ошибки в отчёте (физлицо)", max: 10000 },
+                { title: "Работник не обеспечен СИЗ (нет записи) (физлицо)", max: 30000 },
+                { title: "Допустили к работе без обучения (физлицо)", max: 25000 },
+                { title: "Не выдали СИЗ или не научили пользоваться (физлицо)", max: 30000 },
+                { title: "Не выполнено предписание ГИТ (физлицо)", max: 0, nonMonetary: true, description: "ДИСКВАЛИФИКАЦИЯ 3 ГОДА" },
+
+                // Юридические лица
+                { title: "Не проведён вводный инструктаж (юрлицо)", max: 130000 },
+                { title: "Нет подписи в журнале инструктажа (юрлицо)", max: 130000 },
+                { title: "Отсутствует распоряжение о стажировке (юрлицо)", max: 130000 },
+                { title: "Не проведена СОУТ или ошибки в отчёте (юрлицо)", max: 80000 },
+                { title: "Работник не обеспечен СИЗ (нет записи) (юрлицо)", max: 150000 },
+                { title: "Допустили к работе без обучения (юрлицо)", max: 130000 },
+                { title: "Не выдали СИЗ или не научили пользоваться (юрлицо)", max: 150000 },
+                { title: "Не выполнено предписание ГИТ (юрлицо)", max: 200000 },
+                { title: "Не выполнено предписание ГИТ (юрлицо, приостановка)", max: 0, nonMonetary: true, description: "ПРИОСТАНОВКА 90 СУТОК" }
+            ];
+
+            const displayTitle = document.getElementById('displayTitle');
+            const displayAmount = document.getElementById('displayAmount');
+            const digitKeys = document.querySelectorAll('.key.digit');
+            const clearBtn = document.getElementById('clearBtn');
+            const violationsList = document.getElementById('violationsList');
+
+            let currentAnimation = null; // для возможности прервать предыдущую анимацию
+            let audioContext = null;
+
+            // Инициализация AudioContext (будет создан при первом клике)
+            function getAudioContext() {
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                return audioContext;
+            }
+
+            // Воспроизведение короткого звука
+            function playTick() {
+                try {
+                    const ctx = getAudioContext();
+                    if (ctx.state === 'suspended') {
+                        ctx.resume().then(() => playTick());
+                        return;
+                    }
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.value = 800;
+                    gain.gain.value = 0.1;
+                    osc.connect(gain).connect(ctx.destination);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 0.05);
+                } catch (e) {
+                    // игнорируем ошибки звука
+                }
+            }
+
+            // Сброс подсветки всех цифровых кнопок
+            function clearActiveDigits() {
+                digitKeys.forEach(btn => btn.classList.remove('active'));
+            }
+
+            // Подсветка конкретной цифры
+            function highlightDigit(digit) {
+                digitKeys.forEach(btn => {
+                    if (btn.getAttribute('data-digit') === digit) {
+                        btn.classList.add('active');
+                    } else {
+                        btn.classList.remove('active');
+                    }
+                });
+            }
+
+            // Подсветка всех цифр числа
+            function highlightAllDigits(number) {
+                if (!number && number !== 0) return;
+                const numStr = Math.abs(number).toString();
+                const uniqueDigits = [...new Set(numStr.split(''))];
+                digitKeys.forEach(btn => {
+                    const digit = btn.getAttribute('data-digit');
+                    if (digit && uniqueDigits.includes(digit)) {
+                        btn.classList.add('active');
+                    } else {
+                        btn.classList.remove('active');
+                    }
+                });
+            }
+
+            // Анимация набора числа
+            function animateNumber(number, violationTitle) {
+                if (currentAnimation) {
+                    clearTimeout(currentAnimation);
+                    currentAnimation = null;
+                }
+
+                const numStr = number.toString();
+                let buffer = '';
+                let index = 0;
+
+                displayTitle.textContent = violationTitle;
+                displayAmount.textContent = '';
+
+                function step() {
+                    if (index >= numStr.length) {
+                        // Анимация завершена
+                        highlightAllDigits(number);
+                        return;
+                    }
+
+                    const digit = numStr[index];
+                    buffer += digit;
+                    displayAmount.textContent = buffer;
+                    highlightDigit(digit);
+                    playTick();
+
+                    index++;
+                    currentAnimation = setTimeout(step, 200); // интервал между цифрами
+                }
+
+                step();
+            }
+
+            // Обработчик клика по листу
+            function onViolationClick(v) {
+                // Прерываем предыдущую анимацию
+                if (currentAnimation) {
+                    clearTimeout(currentAnimation);
+                    currentAnimation = null;
+                }
+
+                clearActiveDigits();
+
+                if (v.nonMonetary) {
+                    // Неденежное наказание
+                    displayTitle.textContent = v.title;
+                    displayAmount.textContent = v.description; // например "ДИСКВАЛИФИКАЦИЯ 3 ГОДА"
+                    // Можно добавить класс для особого оформления листа (уже есть в CSS)
+                } else {
+                    // Денежный штраф — запускаем анимацию набора максимальной суммы
+                    animateNumber(v.max, v.title);
+                }
+            }
+
+            // Создание кнопок-листов
+            violations.forEach(v => {
+                const btn = document.createElement('button');
+                btn.className = 'violation-btn' + (v.nonMonetary ? ' non-monetary' : '');
+                btn.textContent = v.title;
+                if (v.nonMonetary) {
+                    // Добавим описание прямо на лист (маленьким текстом)
+                    const descSpan = document.createElement('span');
+                    descSpan.style.display = 'block';
+                    descSpan.style.fontSize = '0.8rem';
+                    descSpan.style.color = '#a00';
+                    descSpan.textContent = v.description;
+                    btn.appendChild(descSpan);
+                }
+                btn.addEventListener('click', () => onViolationClick(v));
+                violationsList.appendChild(btn);
+            });
+
+            // Кнопка очистки (C)
+            clearBtn.addEventListener('click', () => {
+                if (currentAnimation) {
+                    clearTimeout(currentAnimation);
+                    currentAnimation = null;
+                }
+                displayTitle.textContent = 'Выберите нарушение';
+                displayAmount.textContent = '';
+                clearActiveDigits();
+            });
+
+            // Для красоты: если кликнуть на любую цифровую кнопку, подсветка не сбрасывается,
+            // но можно добавить дополнительное поведение. Оставим как есть.
+        })();
+    </script>
+</body>
+</html>
