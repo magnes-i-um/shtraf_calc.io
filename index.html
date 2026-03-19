@@ -21,14 +21,24 @@
             margin: 20px;
         }
 
-        .calculator {
-            max-width: 750px;
+        /* Основной контейнер — две колонки */
+        .main-container {
+            display: flex;
+            flex-wrap: wrap; /* на узких экранах колонки встанут друг под другом */
+            gap: 20px;
+            max-width: 1100px;
             width: 100%;
             background: #e0e0e0;
             border-radius: 20px;
             padding: 25px 20px 20px;
             box-shadow: 0 10px 20px rgba(0,0,0,0.2);
             border: 2px solid #aaa;
+        }
+
+        /* Левая колонка — калькулятор */
+        .calculator {
+            flex: 0 0 400px; /* фиксированная ширина 400px */
+            min-width: 300px;
         }
 
         .display {
@@ -68,7 +78,7 @@
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             gap: 12px;
-            margin-bottom: 25px;
+            margin-bottom: 0;
         }
 
         .key {
@@ -111,12 +121,21 @@
             font-size: 1.5rem;
         }
 
+        /* Правая колонка — список нарушений */
+        .violations-container {
+            flex: 1 1 300px; /* занимает оставшееся пространство */
+            min-width: 260px;
+            background: transparent;
+            border-radius: 10px;
+            max-height: 600px;
+            overflow-y: auto; /* прокрутка, если листов много */
+            padding-right: 5px;
+        }
+
         .violations {
             display: flex;
-            flex-wrap: wrap;
+            flex-direction: column;
             gap: 12px;
-            justify-content: center;
-            margin-top: 15px;
         }
 
         .violation-btn {
@@ -130,13 +149,12 @@
             color: #2c2c2c;
             box-shadow: 3px 3px 5px rgba(0,0,0,0.1), inset -2px -2px 3px rgba(255,255,255,0.7);
             cursor: pointer;
-            flex: 1 1 220px;
             transition: 0.1s;
             text-align: left;
             line-height: 1.4;
             letter-spacing: 0.3px;
             text-transform: uppercase;
-            min-width: 240px;
+            width: 100%;
             position: relative;
         }
 
@@ -173,10 +191,19 @@
             border-color: #b08a7a;
         }
 
-        @media (max-width: 500px) {
-            .display { font-size: 1.8rem; }
-            .key { padding: 15px 0; font-size: 1.5rem; }
-            .violation-btn { min-width: 100%; }
+        /* Адаптация для узких экранов — колонки в столбец */
+        @media (max-width: 800px) {
+            .main-container {
+                flex-direction: column;
+            }
+            .calculator {
+                flex: auto;
+                width: 100%;
+            }
+            .violations-container {
+                max-height: none;
+                overflow-y: visible;
+            }
         }
 
         @font-face {
@@ -189,47 +216,51 @@
     </style>
 </head>
 <body>
-    <div class="calculator">
-        <div class="display" id="display">
-            <div class="title" id="displayTitle">Выберите нарушение</div>
-            <div class="amount" id="displayAmount"></div>
+    <div class="main-container">
+        <!-- Левая колонка: калькулятор -->
+        <div class="calculator">
+            <div class="display" id="display">
+                <div class="title" id="displayTitle">Выберите нарушение</div>
+                <div class="amount" id="displayAmount"></div>
+            </div>
+
+            <div class="keypad" id="keypad">
+                <button class="key operation">÷</button>
+                <button class="key operation">×</button>
+                <button class="key operation">−</button>
+                <button class="key operation">+</button>
+
+                <button class="key digit" data-digit="7">7</button>
+                <button class="key digit" data-digit="8">8</button>
+                <button class="key digit" data-digit="9">9</button>
+                <button class="key clear" id="clearBtn">C</button>
+
+                <button class="key digit" data-digit="4">4</button>
+                <button class="key digit" data-digit="5">5</button>
+                <button class="key digit" data-digit="6">6</button>
+                <button class="key operation">±</button>
+
+                <button class="key digit" data-digit="1">1</button>
+                <button class="key digit" data-digit="2">2</button>
+                <button class="key digit" data-digit="3">3</button>
+                <button class="key operation">%</button>
+
+                <button class="key digit" data-digit="0" style="grid-column: span 2;">0</button>
+                <button class="key operation">.</button>
+                <button class="key operation">=</button>
+            </div>
         </div>
 
-        <div class="keypad" id="keypad">
-            <button class="key operation">÷</button>
-            <button class="key operation">×</button>
-            <button class="key operation">−</button>
-            <button class="key operation">+</button>
-
-            <button class="key digit" data-digit="7">7</button>
-            <button class="key digit" data-digit="8">8</button>
-            <button class="key digit" data-digit="9">9</button>
-            <button class="key clear" id="clearBtn">C</button>
-
-            <button class="key digit" data-digit="4">4</button>
-            <button class="key digit" data-digit="5">5</button>
-            <button class="key digit" data-digit="6">6</button>
-            <button class="key operation">±</button>
-
-            <button class="key digit" data-digit="1">1</button>
-            <button class="key digit" data-digit="2">2</button>
-            <button class="key digit" data-digit="3">3</button>
-            <button class="key operation">%</button>
-
-            <button class="key digit" data-digit="0" style="grid-column: span 2;">0</button>
-            <button class="key operation">.</button>
-            <button class="key operation">=</button>
+        <!-- Правая колонка: листы нарушений -->
+        <div class="violations-container">
+            <div class="violations" id="violationsList"></div>
         </div>
-
-        <div class="violations" id="violationsList"></div>
     </div>
 
     <script>
         (function() {
-            // Данные о нарушениях: title (текст на листе), max (максимальная сумма), 
-            // nonMonetary (флаг неденежного наказания), description (текст для дисплея)
             const violations = [
-                // Должностные лица (физлица)
+                // Должностные лица
                 { title: "Не проведён вводный инструктаж (физлицо)", max: 25000 },
                 { title: "Нет подписи в журнале инструктажа (физлицо)", max: 25000 },
                 { title: "Отсутствует распоряжение о стажировке (физлицо)", max: 25000 },
@@ -257,10 +288,9 @@
             const clearBtn = document.getElementById('clearBtn');
             const violationsList = document.getElementById('violationsList');
 
-            let currentAnimation = null; // для возможности прервать предыдущую анимацию
+            let currentAnimation = null;
             let audioContext = null;
 
-            // Инициализация AudioContext (будет создан при первом клике)
             function getAudioContext() {
                 if (!audioContext) {
                     audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -268,7 +298,6 @@
                 return audioContext;
             }
 
-            // Воспроизведение короткого звука
             function playTick() {
                 try {
                     const ctx = getAudioContext();
@@ -285,16 +314,14 @@
                     osc.start();
                     osc.stop(ctx.currentTime + 0.05);
                 } catch (e) {
-                    // игнорируем ошибки звука
+                    // ignore
                 }
             }
 
-            // Сброс подсветки всех цифровых кнопок
             function clearActiveDigits() {
                 digitKeys.forEach(btn => btn.classList.remove('active'));
             }
 
-            // Подсветка конкретной цифры
             function highlightDigit(digit) {
                 digitKeys.forEach(btn => {
                     if (btn.getAttribute('data-digit') === digit) {
@@ -305,7 +332,6 @@
                 });
             }
 
-            // Подсветка всех цифр числа
             function highlightAllDigits(number) {
                 if (!number && number !== 0) return;
                 const numStr = Math.abs(number).toString();
@@ -320,7 +346,6 @@
                 });
             }
 
-            // Анимация набора числа
             function animateNumber(number, violationTitle) {
                 if (currentAnimation) {
                     clearTimeout(currentAnimation);
@@ -336,7 +361,6 @@
 
                 function step() {
                     if (index >= numStr.length) {
-                        // Анимация завершена
                         highlightAllDigits(number);
                         return;
                     }
@@ -348,15 +372,13 @@
                     playTick();
 
                     index++;
-                    currentAnimation = setTimeout(step, 200); // интервал между цифрами
+                    currentAnimation = setTimeout(step, 200);
                 }
 
                 step();
             }
 
-            // Обработчик клика по листу
             function onViolationClick(v) {
-                // Прерываем предыдущую анимацию
                 if (currentAnimation) {
                     clearTimeout(currentAnimation);
                     currentAnimation = null;
@@ -365,23 +387,18 @@
                 clearActiveDigits();
 
                 if (v.nonMonetary) {
-                    // Неденежное наказание
                     displayTitle.textContent = v.title;
-                    displayAmount.textContent = v.description; // например "ДИСКВАЛИФИКАЦИЯ 3 ГОДА"
-                    // Можно добавить класс для особого оформления листа (уже есть в CSS)
+                    displayAmount.textContent = v.description;
                 } else {
-                    // Денежный штраф — запускаем анимацию набора максимальной суммы
                     animateNumber(v.max, v.title);
                 }
             }
 
-            // Создание кнопок-листов
             violations.forEach(v => {
                 const btn = document.createElement('button');
                 btn.className = 'violation-btn' + (v.nonMonetary ? ' non-monetary' : '');
                 btn.textContent = v.title;
                 if (v.nonMonetary) {
-                    // Добавим описание прямо на лист (маленьким текстом)
                     const descSpan = document.createElement('span');
                     descSpan.style.display = 'block';
                     descSpan.style.fontSize = '0.8rem';
@@ -393,7 +410,6 @@
                 violationsList.appendChild(btn);
             });
 
-            // Кнопка очистки (C)
             clearBtn.addEventListener('click', () => {
                 if (currentAnimation) {
                     clearTimeout(currentAnimation);
@@ -403,9 +419,6 @@
                 displayAmount.textContent = '';
                 clearActiveDigits();
             });
-
-            // Для красоты: если кликнуть на любую цифровую кнопку, подсветка не сбрасывается,
-            // но можно добавить дополнительное поведение. Оставим как есть.
         })();
     </script>
 </body>
